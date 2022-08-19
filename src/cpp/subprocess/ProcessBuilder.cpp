@@ -9,14 +9,16 @@
 #else
 #include <wait.h>
 #endif
-#include <errno.h>
-#include <signal.h>
+#include <cerrno>
+#include <csignal>
 #endif
 
-#include <string.h>
+#include <iterator>
+#include <sstream>
 #include <thread>
 #include <mutex>
 #include <chrono>
+#include <cstring>
 #include <cstring>
 
 #include "shell_utils.hpp"
@@ -29,6 +31,12 @@ using std::nullptr_t;
 
 namespace subprocess {
     namespace details {
+        void throw_os_error(const CommandLine& cmd, int errno_code) {
+            const char* const delim = ", ";
+            std::ostringstream imploded;
+            std::copy(cmd.begin(), cmd.end(), std::ostream_iterator<std::string>(imploded, delim));
+            throw_os_error(imploded.str().c_str(), errno_code);
+        }
         void throw_os_error(const char* function, int errno_code) {
             if (errno_code == 0)
                 return;
@@ -162,10 +170,10 @@ namespace subprocess {
         case PipeVarIndex::istream: // dousn't make sense
             throw std::domain_error("expected something to output to");
         case PipeVarIndex::ostream:
-            pipe_thread(input, std::get<std::ostream*>(output));
+            pipe_thread(input, mpark::get<std::ostream*>(output));
             break;
         case PipeVarIndex::file:
-            pipe_thread(input, std::get<FILE*>(output));
+            pipe_thread(input, mpark::get<FILE*>(output));
             break;
         }
     }
@@ -177,15 +185,15 @@ namespace subprocess {
         case PipeVarIndex::handle:
         case PipeVarIndex::option: return;
         case PipeVarIndex::string:
-            pipe_thread(std::get<std::string>(input), output, true);
+            pipe_thread(mpark::get<std::string>(input), output, true);
             break;
         case PipeVarIndex::istream:
-            pipe_thread(std::get<std::istream*>(input), output, true);
+            pipe_thread(mpark::get<std::istream*>(input), output, true);
             break;
         case PipeVarIndex::ostream:
             throw std::domain_error("reading from std::ostream doesn't make sense");
         case PipeVarIndex::file:
-            pipe_thread(std::get<FILE*>(input), output, true);
+            pipe_thread(mpark::get<FILE*>(input), output, true);
             break;
         }
     }
@@ -207,17 +215,17 @@ namespace subprocess {
         builder.cerr_option = get_pipe_option(options.cerr);
 
         if (builder.cin_option == PipeOption::specific) {
-            builder.cin_pipe = std::get<PipeHandle>(options.cin);
+            builder.cin_pipe = mpark::get<PipeHandle>(options.cin);
             if (builder.cin_pipe == kBadPipeValue)
                 throw std::invalid_argument("bad pipe value for cin");
         }
         if (builder.cout_option == PipeOption::specific) {
-            builder.cout_pipe = std::get<PipeHandle>(options.cout);
+            builder.cout_pipe = mpark::get<PipeHandle>(options.cout);
             if (builder.cout_pipe == kBadPipeValue)
                 throw std::invalid_argument("Popen constructor: bad pipe value for cout");
         }
         if (builder.cerr_option == PipeOption::specific) {
-            builder.cerr_pipe = std::get<PipeHandle>(options.cerr);
+            builder.cerr_pipe = mpark::get<PipeHandle>(options.cerr);
             if (builder.cout_pipe == kBadPipeValue)
                 throw std::invalid_argument("Popen constructor: bad pipe value for cout");
         }
@@ -407,7 +415,7 @@ namespace subprocess {
                     continue;
                 }
                 if (child == -1) {
-                    // TODO: throw oserror(errno)
+                    details::throw_os_error(this->args, errno);
                 }
                 break;
             }
@@ -427,6 +435,8 @@ namespace subprocess {
                 return returncode;
             sleep_seconds(0.00001);
         }
+        this->kill();
+
         throw TimeoutExpired("no time");
     }
 
@@ -516,6 +526,7 @@ namespace subprocess {
     }
 
     CompletedProcess run(CommandLine command, RunOptions options) {
+        const double timeout = options.timeout;
         Popen popen(command, std::move(options));
         CompletedProcess completed;
         std::thread cout_thread;
@@ -548,7 +559,7 @@ namespace subprocess {
             cerr_thread.join();
         }
 
-        popen.wait();
+        popen.wait(timeout);
         completed.returncode = popen.returncode;
         completed.args = command;
         if (options.check && completed.returncode != 0) {
