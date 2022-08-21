@@ -23,4 +23,4 @@ libsubprocess = shared_library(
     dependencies : subprocess_depends,
     install : true)
 
-subprocess_dep = declare_dependency(include_directories : inc, link_with : libsubprocess)
+subprocess_dep = declare_dependency(include_directories : inc, link_with : libsubprocess, dependencies: subprocess_depends)
