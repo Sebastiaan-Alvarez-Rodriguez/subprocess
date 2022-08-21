@@ -19,7 +19,6 @@
 #include <mutex>
 #include <chrono>
 #include <cstring>
-#include <cstring>
 
 #include "shell_utils.hpp"
 #include "utf8_to_utf16.hpp"
@@ -435,8 +434,6 @@ namespace subprocess {
                 return returncode;
             sleep_seconds(0.00001);
         }
-        this->kill();
-
         throw TimeoutExpired("no time");
     }
 
@@ -552,16 +549,34 @@ namespace subprocess {
             });
         }
 
+        if (timeout > 0) {
+            std::thread timeout_thread = std::thread([&]() {
+                StopWatch watch;
+                while (watch.seconds() < timeout) {
+                    if (popen.poll())
+                        return;
+                    sleep_seconds(0.00001);
+                }
+                popen.kill();
+            });
+
+            if (timeout_thread.joinable()) {
+                timeout_thread.join();
+            }
+        }
         if (cout_thread.joinable()) {
             cout_thread.join();
         }
         if (cerr_thread.joinable()) {
             cerr_thread.join();
         }
+        popen.wait();
 
-        popen.wait(timeout);
         completed.returncode = popen.returncode;
         completed.args = command;
+        if (timeout > 0 && completed.returncode == -9 ) {
+            throw TimeoutExpired("Timeout occurred");
+        }
         if (options.check && completed.returncode != 0) {
             CalledProcessError error("failed to execute " + command[0]);
             error.cmd           = command;

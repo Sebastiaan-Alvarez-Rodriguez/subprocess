@@ -128,9 +128,9 @@ namespace subprocess {
         uint8_t buf[buf_size];
         std::string result;
         while(true) {
-            ssize_t transfered = pipe_read(handle, buf, buf_size);
-            if(transfered > 0) {
-                result.insert(result.end(), &buf[0], &buf[transfered]);
+            ssize_t transferred = pipe_read(handle, buf, buf_size);
+            if(transferred > 0) {
+                result.insert(result.end(), &buf[0], &buf[transferred]);
             } else {
                 break;
             }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <variant>
+#include <mpark/variant.h>
 #include <iostream>
 #include <cstdio>
 
@@ -18,7 +18,7 @@ namespace subprocess {
         file
     };
 
-    typedef std::variant<PipeOption, std::string, PipeHandle,
+    typedef mpark::variant<PipeOption, std::string, PipeHandle,
         std::istream*, std::ostream*, FILE*> PipeVar;
 
 
@@ -26,7 +26,7 @@ namespace subprocess {
         PipeVarIndex index = static_cast<PipeVarIndex>(option.index());
 
         switch(index) {
-        case PipeVarIndex::option:  return std::get<PipeOption>(option);
+        case PipeVarIndex::option:  return mpark::get<PipeOption>(option);
         case PipeVarIndex::handle:  return PipeOption::specific;
 
         default:                    return PipeOption::pipe;

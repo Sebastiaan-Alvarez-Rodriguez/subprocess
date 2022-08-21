@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <map>
 #include <mutex>
-#include <filesystem>
+#include <ghc/filesystem.h>
 #include <iostream>
 #include <sstream>
 
@@ -28,10 +28,10 @@ using std::isspace;
 
 namespace subprocess {
     std::string getcwd() {
-        return std::filesystem::current_path().string();
+        return ghc::filesystem::current_path().string();
     }
     void setcwd(const std::string& path) {
-        std::filesystem::current_path(path);
+        ghc::filesystem::current_path(path);
     }
 }
 namespace {
@@ -41,8 +41,8 @@ namespace {
         try {
             if (path.empty())
                 return false;
-            return std::filesystem::is_regular_file(path);
-        } catch (std::filesystem::filesystem_error& e) {
+            return ghc::filesystem::is_regular_file(path);
+        } catch (ghc::filesystem::filesystem_error& e) {
             return false;
         }
     }
@@ -177,7 +177,7 @@ namespace subprocess {
 
     static std::string find_program_in_path(const std::string& name) {
         // because of the cache variable is static we do this to be thread safe
-        std::unique_lock lock(g_program_cache_mutex);
+        std::unique_lock<std::mutex> lock(g_program_cache_mutex);
 
         std::map<std::string, std::string>& cache = g_program_cache;
         if(name.empty())
@@ -190,7 +190,8 @@ namespace subprocess {
             }
 
             if(is_absolute_path(name) || (name[0] == '.' && name[1] == '/')) {
-                if(std::string test = try_exe(name); !test.empty()) {
+                std::string test = try_exe(name);
+                if(!test.empty()) {
                     if(is_file(test)) {
                         return abspath(test);
                     }
