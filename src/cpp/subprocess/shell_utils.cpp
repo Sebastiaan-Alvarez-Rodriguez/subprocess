@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <map>
 #include <mutex>
-#include <ghc/filesystem.h>
+#include <ghc/filesystem.hpp>
 #include <iostream>
 #include <sstream>
 
