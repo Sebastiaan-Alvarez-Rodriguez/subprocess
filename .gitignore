@@ -37,3 +37,7 @@
 ./doc-gen
 
 __pycache__/
+
+# Meson downloaded subprojects
+subprojects/*/
+!subprojects/*_vendored/
